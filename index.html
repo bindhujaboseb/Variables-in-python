@@ -198,6 +198,22 @@
   .steps button:hover{background:var(--sky)}
   .navtip{flex-basis:100%;text-align:center;font-size:12px;color:var(--muted)}
   @media (max-width:760px){.exgrid,.builder{grid-template-columns:1fr}}
+  .vtab{border-collapse:separate;border-spacing:0;margin:10px 0 4px;font-size:16px;border:2px solid #C9D6EA;border-radius:12px;overflow:hidden;min-width:min(520px,100%)}
+  .vtab th{background:linear-gradient(135deg,#7B5CD6,#3D7AB8);color:#fff;text-align:left;padding:8px 14px;font-size:14px;letter-spacing:.02em;text-transform:none}
+  .vtab td{padding:8px 14px;background:#fff;border-top:1px solid #E3E9F3}
+  .vtab td:first-child{background:#FFF8E1}.vtab td:first-child code{font-size:17px;color:#7A4A00}
+  .vtab td:nth-child(3){white-space:nowrap;color:var(--muted);font-weight:700;font-size:14px}
+  .trycard{border:2px solid #9FDCD9;background:#F5FDFC;border-radius:16px;padding:14px 16px;margin-top:14px}
+  .trycard h3{margin:0;font-size:22px;color:#0E7C7A}
+  .tsteps{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .tsteps span{font-size:13px;font-weight:800;padding:4px 12px;border-radius:999px;background:#fff;border:1.5px solid #C9D6EA;color:var(--muted)}
+  .tsteps span.on{background:#14A3A0;border-color:#14A3A0;color:#fff}.tsteps span.done{background:var(--greenbg);border-color:#9BD49D;color:var(--green)}
+  .ansbox{margin-top:10px;background:#FFF8E1;border:2px dashed #F2C53D;border-radius:12px;padding:10px 14px}
+  .ansbox pre{margin:8px 0 0}
+  .pinbox{-webkit-text-security:disc;text-security:disc;letter-spacing:4px}
+  #devlock{position:fixed;inset:0;z-index:9999;background:rgba(29,38,51,.96);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px}
+  #devlock h2{color:#FFD43B;font-size:32px;margin:10px 0}#devlock p{font-size:18px;line-height:1.5}
+  .flagx{display:inline-block;margin-left:6px;font-size:12px;font-weight:800;color:#B33350;background:#FDECEF;border-radius:999px;padding:2px 8px}
   /* dashboard */
   .dash{max-width:1280px}
   .kpis{display:grid;grid-template-columns:1.3fr repeat(5,1fr);gap:12px;margin-top:14px}
@@ -344,8 +360,10 @@
 <div class="sync" id="sync" hidden></div>
 
 <script>
+(() => {
+"use strict";
 /* ======================= SETTINGS (edit these) ======================= */
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyRGtD9Kw-Svl3uBjZbF-gjFQaIkEhgMC7SoygND6pwJsKAvQ0LlUj2u7NDysbygtMmnw/exec';            // paste your Google Apps Script web-app link here
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxw5XDH0YckkGLfYKqFlR8IJs-iFypdIXg9vFamym8mjDuAnt9ghya96EeVm0ww9izYig/exec';            // paste your Google Apps Script web-app link here
 // PINs are NOT stored here – change them in the "Settings" tab of the Google Sheet before each class.
 const MODE = 'student';         // 'student' = student website · 'teacher' = teacher dashboard
 const CLASS_NAME = 'VIII';
@@ -364,46 +382,73 @@ const PLENARY_Q = [
 ];
 const HOT_Q = 'In  item = "Pen"  the value needs quotation marks, but in  price = 5  it does not. Why do you think this is? What would happen if you wrote  item = Pen  without quotes?';
 const BUGGY = 'my name = "Omar"\nprint(My_name)';
-const labelled = (P, v) => P.prints.some(p => p.reads.includes(v) && /["']/.test(p.src));
-const strVar = (P, n, what) => !P.vars[n] ? `Create a variable called <code>${n}</code>.` : P.vars[n].t !== 'str' ? `<code>${n}</code> should store ${what} as text – put it inside quotation marks.` : '';
-const numVar = (P, n) => !P.vars[n] ? `Create a variable called <code>${n}</code>.` : P.vars[n].t === 'str' ? `<code>${n}</code> should store a <b>number</b> – remove the quotation marks.` : '';
+const lc = x => String(x).toLowerCase();
+const V = (P, n) => P.V[lc(n)];
+const labelled = (P, v) => P.prints.some(p => p.rl.includes(lc(v)) && /["']/.test(p.src));
+const strVar = (P, n, what) => !V(P, n) ? `Create a variable called <b><code>${n}</code></b>.` : V(P, n).t !== 'str' ? `<b><code>${n}</code></b> should store ${what} as text – put it inside quotation marks.` : '';
+const numVar = (P, n, want) => !V(P, n) ? `Create a variable called <b><code>${n}</code></b>.` : V(P, n).t === 'str' ? `<b><code>${n}</code></b> should store a <b>number</b> – remove the quotation marks.` : (want !== undefined && V(P, n).v !== want ? `<b><code>${n}</code></b> should store <b>${want}</b>.` : '');
+const usesAll = (P, ...ns) => P.prints.some(p => ns.every(n => p.rl.includes(lc(n))));
+const usesSum = (P, x, y) => P.prints.some(p => (p.rl.includes(x) && p.rl.includes(y)) || p.rl.some(v => (P.SR[v] || []).includes(x) && (P.SR[v] || []).includes(y)));
+const vt = rows => `<table class="vtab"><tr><th>Variable (box name)</th><th>Value to store</th><th>Type</th></tr>${rows.map(([n, v, t]) => `<tr><td><b><code>${n}</code></b></td><td>${v}</td><td>${t}</td></tr>`).join('')}</table>`;
+const TXT = '📝 text', NUM = '🔢 number';
 const LEVELS = [
   { t: 'Level 1 – Make a Variable 📦', sc: 'Success criteria 1 & 2: explain a variable · create variables and store text and numbers', qs: [
-    { type: 'mcq', q: 'Which line creates a variable called <code>pet</code> that stores the word cat?', o: ['"cat" = pet', 'pet = "cat"', 'print(pet = "cat")'], a: 1,
+    { type: 'mcq', q: 'Which line creates a variable called <b><code>pet</code></b> that stores the word cat?', o: ['"cat" = pet', 'pet = "cat"', 'print(pet = "cat")'], a: 1,
       why: 'The variable name goes on the left of = and the value goes on the right.' },
-    { type: 'code', q: 'Create a variable <code>school</code> that stores the name of your school.', start: '', out: '(no output needed – look at the Memory box)',
-      hint: '<b>Step 1:</b> write the box name <code>school</code><br><b>Step 2:</b> type <code>=</code><br><b>Step 3:</b> write your school name inside quotes <code>" "</code><br>Example: <code>pet = "cat"</code>', check: P => strVar(P, 'school', 'the school name') },
-    { type: 'code', q: 'Create a variable <code>grade</code> that stores the <b>number</b> 8, and a variable <code>emirate</code> that stores where you live.', start: '', out: '(no output needed – look at the Memory box)',
-      hint: 'Write <b>two lines</b> – one box on each line.<br>🔢 A number has <b>no</b> quotes: <code>score = 10</code><br>📝 Text <b>has</b> quotes: <code>colour = "blue"</code>', check: P => numVar(P, 'grade') || (P.vars.grade.v !== 8 ? '<code>grade</code> should store 8.' : '') || strVar(P, 'emirate', 'your emirate') },
+    { type: 'code', q: 'Create a variable <b><code>school</code></b> that stores the name of your school.' + vt([['school', 'the name of your school, e.g. <code>"Sharjah Indian School"</code>', TXT]]), start: '', out: '(no output needed – look at the Memory box)',
+      hint: '<b>Step 1:</b> write the variable name <code>school</code><br><b>Step 2:</b> type <code>=</code><br><b>Step 3:</b> write your school name inside quotes <code>" "</code><br>Example: <code>pet = "cat"</code>', check: P => strVar(P, 'school', 'the school name') },
+    { type: 'code', q: 'Create these <b>2 variables</b>:' + vt([['grade', '<code>8</code>', NUM], ['emirate', 'the emirate you live in, e.g. <code>"Sharjah"</code>', TXT]]), start: '', out: '(no output needed – look at the Memory box)',
+      hint: 'Write <b>two lines</b> – one variable on each line.<br>🔢 A number has <b>no</b> quotes: <code>score = 10</code><br>📝 Text <b>has</b> quotes: <code>colour = "blue"</code>', check: P => numVar(P, 'grade', 8) || strVar(P, 'emirate', 'your emirate') },
   ] },
   { t: 'Level 2 – Print It! 🖨️', sc: 'Success criterion 3: use print() to show variable values with labels', qs: [
     { type: 'mcq', q: 'What is the output?<pre>food = "Biryani"\nprint("I like", food)</pre>', o: ['I like food', 'I like Biryani', 'food Biryani'], a: 1,
       why: 'print() shows the value stored in the variable, not its name.' },
-    { type: 'code', q: 'Create a variable <code>food</code> that stores your favourite food. Print it with a label.', start: '', out: 'Favourite food: Biryani',
-      hint: '<b>Line 1:</b> make the box, e.g. <code>drink = "juice"</code><br><b>Line 2:</b> print the label in quotes, a <b>comma</b>, then the box name:<br><code>print("My drink:", drink)</code>', check: P => strVar(P, 'food', 'your favourite food') || (!labelled(P, 'food') ? 'Print <code>food</code> with a label in quotes.' : '') },
-    { type: 'code', q: '<b>Challenge:</b> Create 2 variables <code>name</code> and <code>city</code>. Use <b>one</b> print() to show a sentence like the output below.', start: '', out: 'Aisha lives in Sharjah',
-      hint: '<b>Line 1 and 2:</b> make one box for the name and one box for the city.<br><b>Line 3:</b> inside ONE print(), write: name box <b>,</b> <code>"lives in"</code> <b>,</b> city box<br>Example: <code>print(cat, "sleeps on", bed)</code>', check: P => strVar(P, 'name', 'a name') || strVar(P, 'city', 'a city') ||
-        (!P.prints.some(p => p.reads.includes('name') && p.reads.includes('city')) ? 'Use <b>one</b> print() that shows both <code>name</code> and <code>city</code>.' : '') ||
-        (!P.prints.some(p => p.reads.includes('name') && p.reads.includes('city') && /lives in/i.test(p.text)) ? 'Add the words <b>"lives in"</b> between the two variables.' : '') },
+    { type: 'code', q: 'Create these <b>2 variables</b>, then <b>print their sum</b> with a label.' + vt([['a', '<code>10</code>', NUM], ['b', '<code>5</code>', NUM]]), start: '', out: 'Sum: 15',
+      hint: '<b>Line 1 and 2:</b> make the variables <code>a</code> and <code>b</code><br><b>Line 3:</b> inside print(), write the label in quotes, a <b>comma</b>, then <code>a + b</code><br>Example: <code>print("Total:", x + y)</code><br>💡 You can also store the sum in a new variable first, then print that variable.',
+      check: P => numVar(P, 'a', 10) || numVar(P, 'b', 5) || (!usesSum(P, 'a', 'b') ? 'Use <b>both</b> variables to find the sum: <code>a + b</code> (you can also store it first, e.g. <code>total = a + b</code>)' : '') ||
+        (!P.prints.some(p => /\b15\b/.test(p.text)) ? 'The sum of 10 and 5 should be <b>15</b> – use <code>+</code> between a and b.' : '') || (!P.prints.some(p => /["']/.test(p.src) && /\b15\b/.test(p.text)) ? 'Add a label in quotes, e.g. <code>"Sum:"</code>' : '') },
   ] },
   { t: 'Level 3 – Bug Hunt 🐞', sc: 'All success criteria: correct names, storing values and printing', qs: [
     { type: 'mcq', q: 'Which is a <b>correct</b> variable name in Python?', o: ['first name', '1st_name', 'first_name'], a: 2,
       why: 'Names cannot have spaces or start with a number – use an underscore instead.' },
-    { type: 'code', q: 'This code has <b>2 bugs</b>. Press Run, read the error and fix it so it prints <b>Ajman</b>.', start: 'my city = "Ajman"\nprint(My_city)', out: 'Ajman',
-      hint: '🐞 <b>Bug 1:</b> a name cannot have a space – join the words with <code>_</code><br>🐞 <b>Bug 2:</b> Python sees <b>M</b> and <b>m</b> as different letters – the name inside print() must match <b>exactly</b>.',
-      check: P => /my\s+city\s*=/.test(P.code) ? 'A variable name cannot have a space.' : (!P.prints.some(p => p.reads.length && p.text.trim() === 'Ajman') ? 'Print the <b>variable</b> so the output shows Ajman.' : '') },
-    { type: 'code', q: 'Something is missing in the print() line. Fix it so it prints the output below.', start: 'age = 13\nprint("Age:" age)', out: 'Age: 13',
-      hint: 'Look between <code>"Age:"</code> and <code>age</code> – something is missing! 👀<br>Every part inside print() needs a <b>comma</b> between it.', check: P => numVar(P, 'age') || (!labelled(P, 'age') ? 'Print <code>age</code> with the label "Age:".' : '') },
+    { type: 'code', q: 'This code has <b>1 bug</b>. Press <b>Run</b>, read the red error message and fix it so it prints the output below.', start: 'fruit = Mango\nprint("Fruit:", fruit)', out: 'Fruit: Mango',
+      hint: '🐞 <b>Mango</b> is <b>text</b>. What does text always need around it? 🤔<br>Look at line 1.',
+      check: P => strVar(P, 'fruit', 'Mango') || (lc(V(P, 'fruit').v) !== 'mango' ? 'Keep the value <code>"Mango"</code>.' : '') || (!labelled(P, 'fruit') ? 'Print <b><code>fruit</code></b> with the label <code>"Fruit:"</code>.' : '') },
   ] },
-  { t: 'Level 4 – Shop Bill ★', gt: true, sc: 'Optional challenge: use variables in a calculation', qs: [
+  { t: 'Level 4 – Challenge Zone ★', gt: true, sc: 'Optional challenges – try as many as you can! Finish 5 to earn the 🥇 Gold certificate.', qs: [
+    { type: 'code', q: 'Create a variable <b><code>food</code></b> that stores your favourite food. Print it with a label.' + vt([['food', 'your favourite food, e.g. <code>"Biryani"</code>', TXT]]), start: '', out: 'Favourite food: Biryani',
+      hint: '<b>Line 1:</b> make the variable<br><b>Line 2:</b> print a label in quotes, a <b>comma</b>, then the variable name.', check: P => strVar(P, 'food', 'your favourite food') || (!labelled(P, 'food') ? 'Print <b><code>food</code></b> with a label in quotes.' : '') },
+    { type: 'code', q: 'Create these <b>2 variables</b>. Use <b>one</b> print() to show a sentence like the output below.' + vt([['name', 'a name, e.g. <code>"Aisha"</code>', TXT], ['city', 'a city, e.g. <code>"Sharjah"</code>', TXT]]), start: '', out: 'Aisha lives in Sharjah',
+      hint: 'Inside ONE print(), write: name <b>,</b> <code>"lives in"</code> <b>,</b> city', check: P => strVar(P, 'name', 'a name') || strVar(P, 'city', 'a city') ||
+        (!usesAll(P, 'name', 'city') ? 'Use <b>one</b> print() that shows both <b><code>name</code></b> and <b><code>city</code></b>.' : '') || (!P.prints.some(p => p.rl.includes('name') && p.rl.includes('city') && /lives in/i.test(p.text)) ? 'Add the words <b>"lives in"</b> between the two variables.' : '') },
+    { type: 'code', q: 'Bug hunt: this code has <b>2 bugs</b>. Fix it so it prints <b>Ajman</b>.', start: 'my city = "Ajman"\nprint(My_city)', out: 'Ajman',
+      hint: '🐞 A name cannot have a space – join the words with <code>_</code><br>🐞 The name inside print() must match <b>exactly</b> (M and m are different).',
+      check: P => /my\s+city\s*=/.test(P.code) ? 'A variable name cannot have a space.' : (!P.prints.some(p => p.reads.length && p.text.trim() === 'Ajman') ? 'Print the <b>variable</b> so the output shows Ajman.' : '') },
+    { type: 'code', q: 'Bug hunt: something is missing in the print() line. Fix it so it prints the output below.', start: 'age = 13\nprint("Age:" age)', out: 'Age: 13',
+      hint: 'Every part inside print() needs a <b>comma</b> between it.', check: P => numVar(P, 'age') || (!labelled(P, 'age') ? 'Print <b><code>age</code></b> with the label "Age:".' : '') },
     { type: 'mcq', q: 'What is the output?<pre>x = 4\ny = 5\nprint(x * y)</pre>', o: ['x * y', '20', '45'], a: 1,
       why: 'Python takes the values out of x and y and multiplies them: 4 × 5 = 20.' },
-    { type: 'code', q: 'A pen costs 5 AED. Create <code>price = 5</code> and <code>qty = 3</code>. Create <code>total</code> that multiplies them and print it with a label.', start: '', out: 'Total: 15 AED',
-      hint: '<b>Step 1:</b> make the boxes <code>price</code> and <code>qty</code><br><b>Step 2:</b> <code>total = price * qty</code>  (<code>*</code> means multiply)<br><b>Step 3:</b> print a label, total and <code>"AED"</code> with commas between them.',
-      check: P => numVar(P, 'price') || numVar(P, 'qty') || (P.vars.price.v !== 5 || P.vars.qty.v !== 3 ? 'Use price = 5 and qty = 3.' : '') || (!P.vars.total ? 'Create a variable <code>total</code>.' : '') ||
-        (!(P.setReads.total || []).includes('price') || !(P.setReads.total || []).includes('qty') ? 'Make total use the variables: <code>total = price * qty</code>' : '') || (!labelled(P, 'total') ? 'Print <code>total</code> with a label.' : '') },
+    { type: 'code', q: '🛒 Shop bill: create these variables, make <b><code>total</code></b> = price × qty, and print it with a label.' + vt([['price', '<code>5</code>', NUM], ['qty', '<code>3</code>', NUM], ['total', '<code>price * qty</code>', NUM]]), start: '', out: 'Total: 15 AED',
+      hint: '<code>*</code> means multiply. Print a label, <code>total</code> and <code>"AED"</code> with commas between them.',
+      check: P => numVar(P, 'price', 5) || numVar(P, 'qty', 3) || (!V(P, 'total') ? 'Create a variable <b><code>total</code></b>.' : '') ||
+        (!(P.SR.total || []).includes('price') || !(P.SR.total || []).includes('qty') ? 'Make total use the variables: <code>total = price * qty</code>' : '') || (!labelled(P, 'total') ? 'Print <b><code>total</code></b> with a label.' : '') },
+    { type: 'code', q: '📐 Area of a rectangle: create these variables and print the area with a label.' + vt([['length', '<code>8</code>', NUM], ['width', '<code>5</code>', NUM], ['area', '<code>length * width</code>', NUM]]), start: '', out: 'Area: 40',
+      hint: 'Make length and width first, then <code>area = length * width</code>, then print it with a label.',
+      check: P => numVar(P, 'length', 8) || numVar(P, 'width', 5) || (!V(P, 'area') ? 'Create a variable <b><code>area</code></b>.' : '') ||
+        (!(P.SR.area || []).includes('length') || !(P.SR.area || []).includes('width') ? 'Make area use the variables: <code>area = length * width</code>' : '') || (!labelled(P, 'area') ? 'Print <b><code>area</code></b> with a label.' : '') },
+    { type: 'code', q: '🪪 Join two words: create these variables, join them into <b><code>full_name</code></b> and print it.' + vt([['first', 'a first name, e.g. <code>"Aisha"</code>', TXT], ['last', 'a last name, e.g. <code>"Khan"</code>', TXT], ['full_name', '<code>first + " " + last</code>', TXT]]), start: '', out: 'Full name: Aisha Khan',
+      hint: 'The <code>+</code> sign joins text. Add a space in quotes <code>" "</code> between the two names.',
+      check: P => strVar(P, 'first', 'a first name') || strVar(P, 'last', 'a last name') || (!V(P, 'full_name') ? 'Create a variable <b><code>full_name</code></b>.' : '') ||
+        (!(P.SR.full_name || []).includes('first') || !(P.SR.full_name || []).includes('last') ? 'Join the variables: <code>full_name = first + " " + last</code>' : '') ||
+        (V(P, 'full_name').v !== V(P, 'first').v + ' ' + V(P, 'last').v ? 'Don’t forget the space <code>" "</code> between the two names.' : '') || (!labelled(P, 'full_name') ? 'Print <b><code>full_name</code></b> with a label.' : '') },
+    { type: 'code', q: '📊 Average marks: create 3 marks, add them into <b><code>total</code></b>, then find the <b><code>average</code></b> and print it.' + vt([['m1', '<code>80</code>', NUM], ['m2', '<code>90</code>', NUM], ['m3', '<code>70</code>', NUM], ['total', '<code>m1 + m2 + m3</code>', NUM], ['average', '<code>total / 3</code>', NUM]]), start: '', out: 'Average: 80.0',
+      hint: '<code>/</code> means divide. Make total first, then <code>average = total / 3</code>, then print average with a label.',
+      check: P => numVar(P, 'm1', 80) || numVar(P, 'm2', 90) || numVar(P, 'm3', 70) || (!V(P, 'total') || V(P, 'total').v !== 240 ? 'Make <b><code>total</code></b> = m1 + m2 + m3 (it should be 240).' : '') ||
+        (!V(P, 'average') || V(P, 'average').v !== 80 ? 'Make <b><code>average</code></b> = total / 3.' : '') || (!labelled(P, 'average') ? 'Print <b><code>average</code></b> with a label.' : '') },
   ] },
 ];
+const L4_GOLD = 5;
+const l4Count = () => LEVELS[3].qs.filter((q, j) => S.qd && S.qd['3-' + j]).length;
 function runProgram(code) {
   const vm = makeVM(), P = { code, vars: vm.vars, prints: [], setReads: {}, out: [], err: null, fmt: vm.fmt };
   const lines = code.replace(/\t/g, '    ').split('\n');
@@ -412,10 +457,13 @@ function runProgram(code) {
     if (!t || t.startsWith('#')) continue;
     if (/^\s+\S/.test(ln)) { P.err = { line: n + 1, text: 'IndentationError: unexpected indent', help: 'Remove the spaces at the start of this line.' }; break; }
     const r = vm.run(t);
-    if (r.kind === 'error') { P.err = { line: n + 1, text: r.text, help: r.help || (/^print/.test(t) && /SyntaxError/.test(r.text) ? 'Check the commas – every part inside print() must be separated by a comma.' : '') }; break; }
+    if (r.kind === 'error') { const nm = (r.text.match(/name '(\w+)' is not defined/) || [])[1]; P.err = { line: n + 1, text: r.text, help: r.help || (nm ? `If ${nm} is text, put it inside quotes: "${nm}". If it is a variable, check the spelling – capital and small letters must match.` : '') || (/^print/.test(t) && /SyntaxError/.test(r.text) ? 'Check the commas – every part inside print() must be separated by a comma.' : '') }; break; }
     if (r.kind === 'print') { P.prints.push({ text: r.text, reads: r.reads, src: t }); P.out.push(r.text); }
     if (r.kind === 'set') P.setReads[r.name] = r.reads;
   }
+  P.V = {}; Object.keys(P.vars).forEach(k => P.V[lc(k)] = P.vars[k]);
+  P.SR = {}; Object.keys(P.setReads).forEach(k => P.SR[lc(k)] = P.setReads[k].map(lc));
+  P.prints.forEach(p => p.rl = p.reads.map(lc));
   return P;
 }
 const STAGES = ['login', 'starter', 'wait', 'video', 'main', 'check', 'plenary', 'hot', 'done'];
@@ -423,13 +471,24 @@ const STEP_LABELS = { starter: 'Starter', wait: 'Discussion', video: 'Explore', 
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ls = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }, del(k) { try { localStorage.removeItem(k); } catch (e) { } } };
+const PINATTR = () => `type="text" class="pinbox" name="x${Math.random().toString(36).slice(2)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore readonly`;
+const hsh = str => { let a = 2166136261; for (let i = 0; i < str.length; i++) { a ^= str.charCodeAt(i); a = Math.imul(a, 16777619); } return (a >>> 0).toString(36); };
+const SALT = 'pv8~' + CLASS_NAME + '~sis';
+let tampered = false;
+const ls = {
+  get(k) { try { const raw = localStorage.getItem(k); if (raw === null) return null;
+    if (k !== STORE) return JSON.parse(raw);
+    const i = raw.lastIndexOf('.'), json = decodeURIComponent(escape(atob(raw.slice(0, i))));
+    if (hsh(json + SALT) !== raw.slice(i + 1)) { tampered = true; return null; } return JSON.parse(json);
+  } catch (e) { if (k === STORE) tampered = true; return null; } },
+  set(k, v) { try { const json = JSON.stringify(v); localStorage.setItem(k, k === STORE ? btoa(unescape(encodeURIComponent(json))) + '.' + hsh(json + SALT) : json); } catch (e) { } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { } } };
 
 function fresh() {
   return { stage: 'login', name: '', div: '', s: [null, null], p: [null, null], video: 0, lv: [0, 0, 0, 0], tries: [0, 0, 0, 0], outs: ['', '', '', ''], qd: {}, qc: {},
-    miss: [0, 0, 0], watched: 0, lvIdx: 0, hot: '', approved: '', unlocked: 0, joinedAt: 0, doneAt: 0, qi: 0 };
+    miss: [0, 0, 0], watched: 0, lvIdx: 0, hot: '', approved: '', unlocked: 0, tryCode: '', tryStep: 1, joinedAt: 0, doneAt: 0, qi: 0, flag: '' };
 }
-let S = ls.get(STORE) || fresh();
+let S = (MODE === 'teacher' ? null : ls.get(STORE)) || fresh();
 const keyOf = st => `${CLASS_NAME}|${st.div}|${String(st.name).trim().toLowerCase().replace(/\s+/g, ' ')}`;
 const starterScore = () => S.s.filter((v, i) => v === STARTER_Q[i].a).length;
 const plenaryScore = () => S.p.filter((v, i) => v === PLENARY_Q[i].a).length;
@@ -444,8 +503,8 @@ function rowOf() {
   return { key: keyOf(S), name: S.name, cls: CLASS_NAME, div: S.div, stage: S.stage,
     starter: starterScore(), video: S.video ? 'Yes' : '', L1: S.lv[0], L2: S.lv[1], L3: S.lv[2], L4: S.lv[3], levels: levelsDone(),
     plenary: plenaryScore(), hot: S.hot, points: points(), band: band(), approved: S.approved, unlock: S.unlocked ? 'Yes' : '',
-    answers: JSON.stringify({ s: S.s, p: S.p, tries: S.tries, miss: S.miss }), outputs: JSON.stringify(S.qc || {}).slice(0, 4000),
-    joinedAt: S.joinedAt, doneAt: S.doneAt };
+    answers: JSON.stringify({ s: S.s, p: S.p, tries: S.tries, qd: Object.keys(S.qd || {}).filter(k => S.qd[k]) }), outputs: JSON.stringify(S.qc || {}).slice(0, 4000),
+    joinedAt: S.joinedAt, doneAt: S.doneAt, flag: S.flag || '' };
 }
 function persist() {
   ls.set(STORE, S);
@@ -454,7 +513,7 @@ function persist() {
 }
 async function pushRow() {
   const row = rowOf();
-  if (!SHEET_URL) { const all = ls.get(STORE + '_rows') || {}; const o = all[row.key] || {}; all[row.key] = Object.assign(o, row, { approved: o.approved || row.approved, unlock: o.unlock || row.unlock }); ls.set(STORE + '_rows', all); return; }
+  if (!SHEET_URL) { const all = ls.get(STORE + '_rows') || {}; const o = all[row.key] || {}; all[row.key] = Object.assign(o, row, { approved: o.approved || row.approved, unlock: o.unlock || row.unlock, flag: o.flag || row.flag }); ls.set(STORE + '_rows', all); return; }
   showSync('Saving…');
   try {
     await fetch(SHEET_URL, { method: 'POST', body: JSON.stringify({ action: 'save', row }) });
@@ -573,27 +632,13 @@ function vQuiz(kind) {
 
 /* ================= EXPLORE: animated Variable Box simulator ================= */
 const SCENES = [
-  { code: '', cap: 'Hi, I’m <b>Pybot</b>! 👋 Imagine the computer’s memory is a shelf of empty boxes. Let’s store the details of <b>Aisha’s Nol card</b> in them!' },
-  { code: 'name = "Aisha"', cap: '<b>=</b> means <b>STORE</b>. Python makes a box, sticks the label <b>name</b> on it and drops <b>"Aisha"</b> inside. Text always goes in quotes.' },
-  { code: 'balance = 25', cap: '<b>balance</b> stores the number 25. Numbers don’t need quotes – and the box is <b>blue</b> because it holds a whole number.' },
-  { code: 'fare = 7.5', cap: 'A decimal number like 7.5 gets a <b>green</b> box. Every variable has a <b>name</b>, a <b>value</b> and a <b>type</b>.' },
-  { code: 'print(name)', cap: '<b>print()</b> looks inside the box and copies the value to the output. It shows <b>Aisha</b> – not the word “name”!' },
-  { code: 'print("Balance:", balance, "AED")', cap: 'Put a <b>label</b> in quotes and separate the parts with <b>commas</b>. Now the output is easy to read – just like the Nol card screen!' },
-  { code: 'card id = 1234', cap: 'Oops! 🚫 A variable name <b>cannot have a space</b>. Python stops and shows an error.' },
-  { code: 'card_id = 1234', cap: 'Fixed with an underscore <b>_</b> ✅ Names can use letters, numbers and _, but cannot start with a number.' },
-  { code: '', end: true, cap: '🎉 <b>Remember:</b> a variable is a <b>labelled box</b>. <b>=</b> stores a value and <b>print()</b> shows it. Apps like Nol, Noon and Talabat use variables all the time! Try the <b>Examples</b> and <b>Try it yourself</b> tabs next.' },
+  { code: '', cap: 'Hi, I’m <b>Pybot</b>! 👋 The computer’s memory is like a shelf of empty boxes. A <b>variable</b> is one labelled box that stores a value.' },
+  { code: 'name = "Aisha"', cap: '<b>=</b> means <b>STORE</b>. Python makes a box labelled <b>name</b> and puts <b>"Aisha"</b> inside. Text always goes in quotes.' },
+  { code: 'age = 13', cap: 'Numbers don’t need quotes. The box <b>age</b> stores the number <b>13</b> – it’s blue because it holds a number.' },
+  { code: 'print("Name:", name, "Age:", age)', cap: '<b>print()</b> shows the values inside the boxes. The labels in quotes make the output easy to read!' },
+  { code: '', end: true, cap: '🎉 That’s it! A variable has a <b>name</b> and a <b>value</b>. Now click <b>🧪 Try it yourself</b> and create your own variables!' },
 ];
-const EXAMPLES = [
-  { t: '🪪 Student ID card', code: 'name = "Omar"\nage = 13\nemirate = "Dubai"\nprint("Name:", name)\nprint("Age:", age)\nprint("Emirate:", emirate)', tip: 'Three boxes, three labelled lines of output – that’s a digital ID card!' },
-  { t: '🌡️ Dubai weather', code: 'city = "Dubai"\ntemperature = 38.5\nprint("City:", city)\nprint("Temperature:", temperature, "°C")', tip: '38.5 is a decimal, so its box is green.' },
-  { t: '⚽ Football score', code: 'team = "Al Ain"\ngoals = 3\nprint(team, "scored", goals, "goals")', tip: 'One print() can join text and variables into a sentence.' },
-  { t: '☕ Café order', code: 'item = "Karak tea"\nprice = 2\nprint("Item:", item)\nprint("Price:", price, "AED")', tip: 'A shop app stores each item and price in variables.' },
-];
-const MISSIONS = [
-  { t: 'Create a box that stores <b>text</b> (e.g. your city).' },
-  { t: 'Create a box that stores a <b>number</b> (e.g. your age).' },
-  { t: '<b>Print</b> one of your boxes <b>with a label</b>.' },
-];
+const TRY_ANSWER = 'city = "Sharjah"\nage = 13\nprint("City:", city)\nprint("Age:", age)';
 const KW = ['print', 'if', 'else', 'elif', 'for', 'while', 'and', 'or', 'not', 'True', 'False', 'None', 'def', 'class', 'import', 'in', 'is', 'return', 'input'];
 
 function makeVM() {
@@ -686,7 +731,7 @@ function vVideo() {
       ${S.video ? '<button class="btn sm" id="toMain">Go to Main Activity →</button>' : ''}</div>
     <h2 style="margin-top:6px">Inside the computer’s memory 🧠</h2>
     <div class="extabs" id="extabs">
-      <button data-x="watch">▶ Watch the story</button><button data-x="examples">📘 Examples</button><button data-x="try">🧪 Try it yourself</button>
+      <button data-x="watch">▶ Watch the story</button><button data-x="try">🧪 Try it yourself</button>
     </div>
     <div class="guide"><div class="bot">🤖</div><div class="bubble" id="cap"></div></div>
     <div class="sim">
@@ -710,7 +755,7 @@ function vVideo() {
 function paintExNext() {
   $('exNext').innerHTML = S.video
     ? '<button class="btn" id="vNext">Go to Main Activity →</button>'
-    : '<button class="btn" disabled>Go to Main Activity →</button><div class="muted" style="font-size:14px;margin-top:6px">Watch the story to the end to unlock the Main Activity.</div>';
+    : '<button class="btn" disabled>Go to Main Activity →</button><div class="muted" style="font-size:14px;margin-top:6px">Watch the story, then finish <b>🧪 Try it yourself</b> to unlock the Main Activity.</div>';
   if ($('vNext')) $('vNext').onclick = () => { stopSim(); go('main'); };
 }
 function exploreComplete() {
@@ -722,7 +767,7 @@ function showExTab() {
   stopSim(); simBusy = false;
   document.querySelectorAll('#extabs button').forEach(b => b.classList.toggle('on', b.dataset.x === exTab));
   resetPanel(); paintExNext();
-  ({ watch: setupWatch, examples: setupExamples, try: setupTry })[exTab]();
+  ({ watch: setupWatch, try: setupTry })[exTab]();
 }
 function stopSim() { playing = false; clearTimeout(simTimer); simRun++; }
 let simRun = 0;
@@ -760,89 +805,63 @@ async function showScene(i, animate, noRun) {
   say(SCENES[i].cap);
   if (SCENES[i].code && !noRun) await runLine(SCENES[i].code, animate);
   simBusy = false;
-  if (SCENES[i].end) exploreComplete();
+  if (SCENES[i].end && $('ctrl') && !$('goTry')) { $('ctrl').insertAdjacentHTML('beforeend', '<div style="margin-top:12px"><button class="btn yellow" id="goTry">🧪 Now try it yourself →</button></div>'); $('goTry').onclick = () => { exTab = 'try'; showExTab(); }; }
 }
 
-/* ---- Examples ---- */
-function setupExamples() {
-  say('Here are some real programs from the UAE. Click <b>▶ Run</b> on any example and watch the boxes fill up!');
-  $('edName').textContent = 'example.py';
-  $('ctrl').innerHTML = `<div class="exgrid">${EXAMPLES.map((e, k) => `<div class="excard"><b>${e.t}</b><pre>${esc(e.code)}</pre><button class="btn sm" data-ex="${k}">▶ Run</button></div>`).join('')}</div>`;
-  document.querySelectorAll('[data-ex]').forEach(b => b.onclick = async () => {
-    stopSim(); const my = simRun; resetPanel(); const e = EXAMPLES[+b.dataset.ex]; say(`${e.t} – watch each line run…`);
-    $('shelf').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    for (const line of e.code.split('\n')) { if (my !== simRun) return; await runLine(line, true); await new Promise(r => setTimeout(r, 350)); }
-    if (my === simRun) say(`${e.tip}`);
-  });
-}
-
-/* ---- Try it: box builder ---- */
+/* ---- Try it yourself: create 2 variables + print ---- */
 function setupTry() {
-  $('edName').textContent = 'my_boxes.py';
-  say('Your turn! Build your own boxes. Give each box a <b>name</b>, choose <b>text</b> or <b>number</b>, type a value and click <b>Create box</b>.');
-  $('ctrl').innerHTML = `<div class="builder">
-      <div class="bstep"><h4>1️⃣ Create a box</h4>
-        <label for="bName">Box name</label><input id="bName" placeholder="e.g. city" autocomplete="off" spellcheck="false">
-        <label>What goes inside?</label>
-        <div class="seg" id="bType"><button data-t="text" class="on">📝 Text</button><button data-t="num">🔢 Number</button></div>
-        <input id="bVal" placeholder="e.g. Sharjah" autocomplete="off" style="margin-top:8px">
-        <div class="pv">Python code: <code id="bCode">…</code></div><div class="err" id="bErr"></div>
-        <button class="btn sm" id="bMake">📦 Create box</button></div>
-      <div class="bstep"><h4>2️⃣ Print a box</h4>
-        <label for="pBox">Which box?</label><select id="pBox"></select>
-        <label for="pLab">Label (optional)</label><input id="pLab" placeholder="e.g. City:" autocomplete="off">
-        <div class="pv">Python code: <code id="pCode">…</code></div><div class="err" id="pErr"></div>
-        <button class="btn sm" id="pDo">🖨️ Print</button></div>
-    </div>
-    <div class="missions" id="missions"></div>
-    <details class="own"><summary>✍️ Want to type your own Python line?</summary>
-      <div class="tryrow"><span class="prompt">&gt;&gt;&gt;</span><input id="cmd" class="cmd" placeholder='e.g.  pet = "cat"' autocomplete="off" spellcheck="false"><button class="btn sm" id="runBtn">Run ▶</button></div></details>`;
-  let ty = 'text';
-  const nameMsg = n => !n ? 'Type a name for your box.' : /\s/.test(n) ? `No spaces in a name – try <b>${esc(n.trim().replace(/\s+/g, '_'))}</b>` : /^\d/.test(n) ? 'A name cannot start with a number.' : !/^[A-Za-z_]\w*$/.test(n) ? 'Use only letters, numbers and _ in a name.' : KW.includes(n) ? `<b>${esc(n)}</b> is a Python word – choose another name.` : '';
-  const build = () => {
-    const n = $('bName').value, v = $('bVal').value.trim();
-    let code = '', err = nameMsg(n);
-    if (!err && !v) err = 'Type what goes inside the box.';
-    if (!err && ty === 'num' && !/^-?\d+(\.\d+)?$/.test(v)) err = 'For a number, type digits only (e.g. 13 or 7.5).';
-    if (!err && ty === 'text' && /"/.test(v)) err = 'Please don’t use " inside the text.';
-    if (!err) code = `${n} = ${ty === 'text' ? `"${v}"` : v}`;
-    $('bCode').textContent = code || '…'; $('bErr').innerHTML = (n || v) ? err : ''; $('bMake').disabled = !!err; return code;
+  $('edName').textContent = 'my_variables.py';
+  const step = S.tryStep === 2 ? 2 : 1;
+  say(step === 1 ? 'Your turn! <b>Step 1:</b> create 2 variables. Type the code below and click <b>▶ Run</b> – watch your boxes appear on the memory shelf.'
+    : 'Great boxes! 🎉 <b>Step 2:</b> now add <b>print()</b> lines to show your variables with labels.');
+  const ANS = step === 1 ? 'city = "Sharjah"\nage = 13' : TRY_ANSWER;
+  $('ctrl').innerHTML = `<div class="trycard">
+      <div class="tsteps"><span class="${step === 1 ? 'on' : 'done'}">${step === 1 ? '1' : '✓'} Create variables</span><span class="${step === 2 ? 'on' : ''}">2 Print them</span></div>
+      ${step === 1 ? `<h3>🧪 Step 1 – Create a variable (or box)</h3>
+      <p style="margin:4px 0 0">Create these <b>2 variables</b>:</p>
+      ${vt([['city', 'your city, e.g. <code>"Sharjah"</code>', TXT], ['age', 'your age, e.g. <code>13</code>', NUM]])}
+      <p class="muted" style="margin:6px 0 0;font-size:14px">No output yet – look at the <b>memory shelf</b> to see your boxes.</p>`
+      : `<h3>🖨️ Step 2 – Print your variables</h3>
+      <p style="margin:4px 0 0">Under your 2 variables, add <b>print()</b> lines to show <b><code>city</code></b> and <b><code>age</code></b> with labels.</p>
+      <p class="muted" style="margin:8px 0 0;font-size:14px">Your output should look like this:</p><pre class="outp">City: Sharjah\nAge: 13</pre>`}
+      <div class="ed" style="margin-top:10px"><div class="edh"><i></i><i></i><i></i> type your code here</div><textarea class="codeed" id="tryCode" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="${step === 1 ? 'Line 1: create city&#10;Line 2: create age' : ''}">${esc(S.tryCode || '')}</textarea></div>
+      <div class="ctrl"><button class="btn sm" id="tryRun">▶ Run</button><button class="btn ghost sm" id="tryAns">👀 Show answer</button>${step === 2 ? '<button class="linkbtn" id="tryBack" style="margin:0">← Back to Step 1</button>' : ''}</div>
+      <div id="ansBox"></div><div id="tryFb"></div>
+    </div>`;
+  const ta = $('tryCode');
+  if (step === 2 && !/print/.test(ta.value)) { ta.value = ta.value.replace(/\s*$/, '') + '\n'; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+  ta.oninput = () => { S.tryCode = ta.value; ls.set(STORE, S); };
+  ta.onkeydown = e => { if (e.key === 'Tab') { e.preventDefault(); ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end'); ta.oninput(); } if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('tryRun').click(); } };
+  $('tryAns').onclick = () => {
+    const open = !$('ansBox').innerHTML;
+    $('ansBox').innerHTML = open ? `<div class="ansbox"><b>👀 Answer</b> – read it, then type it yourself in the box above:<pre>${esc(ANS)}</pre></div>` : '';
+    $('tryAns').textContent = open ? '🙈 Hide answer' : '👀 Show answer';
   };
-  const boxes = () => Object.keys(VM.vars);
-  const pbuild = () => {
-    const b = $('pBox').value, l = $('pLab').value.trim().replace(/"/g, '');
-    const code = b ? (l ? `print("${l}", ${b})` : `print(${b})`) : '';
-    $('pCode').textContent = code || '…'; $('pDo').disabled = !code; $('pErr').textContent = b ? '' : 'Create a box first.'; return code;
+  if ($('tryBack')) $('tryBack').onclick = () => { S.tryStep = 1; persist(); setupTry(); };
+  $('tryRun').onclick = async () => {
+    if (simBusy) return;
+    const code = ta.value; if (!code.trim()) { $('tryFb').innerHTML = '<div class="fb no">Type your code first.</div>'; return; }
+    stopSim(); resetPanel(); simBusy = true; const my = simRun; $('tryFb').innerHTML = '';
+    $('shelf').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    for (const line of code.split('\n')) { const t = line.trim(); if (!t || t.startsWith('#')) continue; const r = await runLine(t, true); if (my !== simRun) { simBusy = false; return; } if (!r || r.kind === 'error') break; await wait(150); }
+    simBusy = false;
+    const P = runProgram(code);
+    const msg = P.err ? 'There is an error – read the red message in the output and fix that line.' : strVar(P, 'city', 'your city') || numVar(P, 'age') ||
+      (step === 2 && (!labelled(P, 'city') || !labelled(P, 'age')) ? 'Use <b>print()</b> to show <b><code>city</code></b> and <b><code>age</code></b> with labels, e.g. <code>print("City:", city)</code>' : '');
+    $('ctrl').scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (msg) { $('tryFb').innerHTML = `<div class="fb no">Almost! ${msg}</div>`; say('Nearly there! Read the tip below the box. Stuck? Click <b>👀 Show answer</b>.'); return; }
+    if (step === 1) {
+      $('tryFb').innerHTML = '<div class="fb ok">✓ Well done! Your 2 boxes are on the memory shelf. Now let’s print them!</div><button class="btn" id="toStep2">Next: Step 2 – Print them →</button>';
+      say('🎉 Look at the memory shelf – <b>city</b> stores text and <b>age</b> stores a number!');
+      $('toStep2').onclick = () => { S.tryStep = 2; persist(); setupTry(); $('ctrl').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      return;
+    }
+    $('tryFb').innerHTML = '<div class="fb ok">✓ Brilliant! You created 2 variables and printed them. The Main Activity is unlocked!</div>';
+    say('🏆 Amazing! Your variables are on the memory shelf and printed in the output. You are ready for the <b>Main Activity</b>!');
+    exploreComplete();
   };
-  const fillBoxes = () => { const bs = boxes(), cur = $('pBox').value; $('pBox').innerHTML = bs.length ? bs.map(b => `<option ${b === cur ? 'selected' : ''}>${esc(b)}</option>`).join('') : '<option value="">– no boxes yet –</option>'; pbuild(); };
-  document.querySelectorAll('#bType button').forEach(b => b.onclick = () => { ty = b.dataset.t; document.querySelectorAll('#bType button').forEach(x => x.classList.toggle('on', x === b)); $('bVal').placeholder = ty === 'text' ? 'e.g. Sharjah' : 'e.g. 13'; build(); });
-  $('bName').oninput = build; $('bVal').oninput = build; $('pLab').oninput = pbuild; $('pBox').onchange = pbuild;
-  const exec = async code => { if (simBusy) return; simBusy = true; const r = await runLine(code, true); simBusy = false; checkMissions(r, code); fillBoxes(); return r; };
-  $('bMake').onclick = async () => { const c = build(); if (!c) return; await exec(c); $('bName').value = ''; $('bVal').value = ''; build(); $('bName').focus(); };
-  $('bVal').onkeydown = $('bName').onkeydown = e => { if (e.key === 'Enter' && !$('bMake').disabled) $('bMake').click(); };
-  $('pDo').onclick = async () => { const c = pbuild(); if (c) await exec(c); };
-  const doRun = async () => { const v = $('cmd').value; if (!v.trim()) return; $('cmd').value = ''; await exec(v.trim()); $('cmd').focus(); };
-  $('runBtn').onclick = doRun; $('cmd').onkeydown = e => { if (e.key === 'Enter') doRun(); };
-  build(); fillBoxes(); paintMissions();
 }
-function paintMissions() {
-  if (!$('missions')) return;
-  $('missions').innerHTML = '<div class="muted" style="font-size:14px;font-weight:700">🎯 Missions</div>' + MISSIONS.map((m, i) => `<div class="mis ${S.miss[i] ? 'ok' : ''}"><span>${S.miss[i] ? '✓' : i + 1}</span><div>${m.t}</div></div>`).join('');
-}
-function checkMissions(r, src) {
-  if (!r || r.kind === 'error') return;
-  const before = S.miss.slice();
-  if (r.kind === 'set' && r.val.t === 'str') S.miss[0] = 1;
-  if (r.kind === 'set' && r.val.t !== 'str') S.miss[1] = 1;
-  if (r.kind === 'print' && r.reads.length && /["']/.test(src)) S.miss[2] = 1;
-  if (S.miss.some((x, i) => x && !before[i])) {
-    persist(); const n = S.miss.filter(Boolean).length;
-    say(n === 3 ? '🏆 Amazing – all 3 missions done! You really understand variables now.' : `⭐ Mission complete! ${n}/3 done. ${r.kind === 'set' ? `Look – your box <b>${esc(r.name)}</b> is on the shelf.` : 'Look at the output!'}`);
-    if (n === 3) exploreComplete();
-  } else if (r.kind === 'set') say(`📦 Box <b>${esc(r.name)}</b> now stores <b>${esc(r.shown)}</b>.`);
-  paintMissions();
-}
-
+const wait = ms => new Promise(r => setTimeout(r, ms));
 /* animate one line: type in editor → highlight boxes read → update memory / shell */
 async function runLine(code, animate) {
   const ed = $('edCode'), ln = ed.children.length + 1, row = document.createElement('div');
@@ -905,10 +924,12 @@ function vMain() {
   let i = viewIdx !== null ? viewIdx : cur;
   if (i === null) { viewIdx = null; return vOffer(); }
   const L = LEVELS[i], act = qActive(i), done = !!S.lv[i];
+  if (i === 3 && (S.l4i === undefined || S.l4i === null)) S.l4i = Math.max(0, qActive(3));
+  const l4Next = () => { for (let d = 1; d < L.qs.length; d++) { const j = (S.l4i + d) % L.qs.length; if (!S.qd['3-' + j]) return j; } return -1; };
   const card = (q, j) => {
-    const k = i + '-' + j, ok = !!S.qd[k], locked = !ok && j !== act;
+    const k = i + '-' + j, ok = !!S.qd[k], locked = !ok && j !== (i === 3 ? S.l4i : act);
     if (locked) return `<div class="qbox locked"><div class="qhead"><span class="qn">${j + 1}</span><b>Question ${j + 1}</b><span class="muted">🔒 Finish the question above first</span></div></div>`;
-    const head = `<div class="qhead"><span class="qn ${ok ? 'ok' : ''}">${ok ? '✓' : j + 1}</span><b>Question ${j + 1}</b>${ok ? '<span class="pill done">Done</span>' : ''}</div><div class="qtext">${q.q}</div>`;
+    const head = `<div class="qhead"><span class="qn ${ok ? 'ok' : ''}">${ok ? '✓' : j + 1}</span><b>${i === 3 ? `Challenge ${j + 1} of ${L.qs.length}` : `Question ${j + 1}`}</b>${ok ? '<span class="pill done">Done</span>' : ''}</div><div class="qtext">${q.q}</div>`;
     if (q.type === 'mcq') return `<div class="qbox ${ok ? 'qdone' : ''}" id="q${j}">${head}
       <div class="opts">${q.o.map((o, m) => `<button class="opt ${ok && m === q.a ? 'ok' : ''}" data-q="${j}" data-m="${m}" ${ok ? 'disabled' : ''}><span class="k">${'ABC'[m]}</span><span><code>${esc(o)}</code></span></button>`).join('')}</div>
       <div class="qfb" id="fb${j}">${ok ? `<div class="fb ok">✓ ${q.why}</div>` : ''}</div></div>`;
@@ -928,18 +949,22 @@ function vMain() {
   $('app').innerHTML = `<div class="card">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="tag" style="margin:0">Main Activity</span><div style="flex:1"></div><button class="btn ghost sm" id="openEx">🧠 Explore – revise variables</button></div>
     ${levelChips(i)}
-    <h2 style="margin-top:12px">${L.t}</h2>${L.gt ? '<p><span class="chip pts">★ Optional challenge</span></p>' : ''}
+    <h2 style="margin-top:12px">${L.t}</h2>${L.gt ? `<p><span class="chip pts">★ Optional · ${l4Count()}/${L.qs.length} solved</span></p>` : ''}
     <p class="muted" style="margin-top:0">🎯 ${L.sc}</p>
-    ${L.qs.map(card).join('')}
-    <div id="next">${done ? `<div class="fb ok">✓ ${L.t.split(' – ')[0]} complete!</div><button class="btn" id="cont">${i === 3 ? 'Go to Teacher Check →' : nx === null ? 'Continue →' : `Next: Level ${nx + 1} →`}</button>` : (L.gt ? '<button class="btn ghost" id="skip">Skip – go to Teacher Check →</button>' : '')}</div>
+    ${i === 3 ? card(L.qs[S.l4i], S.l4i) : L.qs.map(card).join('')}
+    <div id="next">${i === 3 ? (() => { const n = l4Count(), nj = l4Next(), solved = !!S.qd['3-' + S.l4i];
+        return `<div class="fb ${n >= L4_GOLD ? 'ok' : ''}" style="${n >= L4_GOLD ? '' : 'background:#FFF8E1;color:#7A5C00'}">${n >= L4_GOLD ? `🥇 Gold certificate unlocked! ${n}/${L.qs.length} challenges solved.` : `⭐ ${n}/${L.qs.length} challenges solved – solve ${L4_GOLD} for a 🥇 Gold certificate.`}</div>
+        <div class="ctrl">${nj >= 0 ? `<button class="btn ${solved ? '' : 'ghost'}" id="l4next">${solved ? 'Next challenge →' : 'Skip to next challenge →'}</button>` : ''}
+        <button class="btn ${nj < 0 ? '' : 'ghost'}" id="skip">${nj < 0 ? 'All done! Go to Teacher Check →' : 'Skip to Teacher Check →'}</button></div>`; })() : done ? `<div class="fb ok">${i === 3 ? `🥇 Gold certificate unlocked! (${l4Count()}/${L.qs.length} challenges)${qActive(3) >= 0 ? ' Keep going with more challenges, or go to the Teacher Check.' : ''}` : `✓ ${L.t.split(' – ')[0]} complete!`}</div><button class="btn" id="cont">${i === 3 ? 'Go to Teacher Check →' : nx === null ? 'Continue →' : `Next: Level ${nx + 1} →`}</button>` : (L.gt ? '<button class="btn ghost" id="skip">Skip – go to Teacher Check →</button>' : '')}</div>
   </div>`;
   bindChips();
   $('openEx').onclick = () => { exTab = 'watch'; go('video'); };
   const finishQ = j => {
     S.qd[i + '-' + j] = 1;
-    if (qActive(i) < 0 && !S.lv[i]) { S.lv[i] = 1; viewIdx = i; }
+    if (!S.lv[i] && (i === 3 ? l4Count() >= L4_GOLD : qActive(i) < 0)) { S.lv[i] = 1; viewIdx = i; }
     persist(); header();
     const y = window.scrollY; vMain(); window.scrollTo(0, y);
+    if (i === 3) { $('next') && $('next').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     const nxt = document.getElementById('q' + (j + 1)); if (nxt) nxt.scrollIntoView({ behavior: 'smooth', block: 'center' }); else if ($('next')) $('next').scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
   document.querySelectorAll('.opt[data-q]').forEach(b => b.onclick = () => {
@@ -976,25 +1001,26 @@ function vMain() {
   document.querySelectorAll('.qdone textarea.codeed').forEach(ta => { const j = +ta.id.slice(4); setTimeout(() => { const rb = document.querySelector(`[data-run="${j}"]`); if (rb) { rb.dataset.auto = '1'; rb.click(); } }, 0); });
   if ($('cont')) $('cont').onclick = () => { if (i === 3) return go('check'); viewIdx = null; vMain(); window.scrollTo(0, 0); };
   if ($('skip')) $('skip').onclick = () => { viewIdx = null; go('check'); };
+  if ($('l4next')) $('l4next').onclick = () => { S.l4i = l4Next(); persist(); vMain(); window.scrollTo(0, 0); };
 }
 function vOffer() {
   $('app').innerHTML = `<div class="card center"><div class="big">🎉</div><h2>Levels 1–3 complete!</h2>
     ${levelChips(-1)}
-    <p class="muted" style="margin-top:12px">Try the optional Level 4 challenge, or go to the Teacher Check now.</p>
-    <button class="btn yellow" id="ch">Try the Level 4 challenge ★</button> <button class="btn" id="tc">Go to Teacher Check →</button></div>`;
+    <p class="muted" style="margin-top:12px">Try the optional <b>Challenge Zone</b> (finish 5 for a 🥇 Gold certificate), or go to the Teacher Check now.</p>
+    <button class="btn yellow" id="ch">Enter the Challenge Zone ★</button> <button class="btn" id="tc">Go to Teacher Check →</button></div>`;
   bindChips();
-  $('ch').onclick = () => { S.lvIdx = 3; viewIdx = null; persist(); vMain(); };
+  $('ch').onclick = () => { S.lvIdx = 3; viewIdx = null; S.l4i = Math.max(0, qActive(3)); persist(); vMain(); };
   $('tc').onclick = () => go('check');
 }
 
 let pollTimer = null;
 function pinBlock(kind, label, onOk) {
-  return { html: `<div style="max-width:260px;margin:12px auto 0"><label for="pin" style="text-align:left">${label}</label><input id="pin" type="password" inputmode="numeric" maxlength="6"></div>
+  return { html: `<div style="max-width:260px;margin:12px auto 0"><label for="pin" style="text-align:left">${label}</label><input id="pin" ${PINATTR()} inputmode="numeric" maxlength="6"></div>
     <div class="err" id="err"></div><button class="btn ghost" id="pinBtn">Enter PIN</button>`,
     bind() {
       $('pinBtn').onclick = async () => {
         $('pinBtn').disabled = true; $('err').textContent = 'Checking…';
-        const r = await checkPin(kind, $('pin').value.trim()); $('pinBtn').disabled = false;
+        const r = await checkPin(kind, $('pin').value.trim()); $('pinBtn').disabled = false; if ($('pin')) $('pin').value = '';
         if (r.ok) onOk(); else $('err').textContent = r.msg === 'Wrong PIN.' ? 'Wrong PIN – ask your teacher.' : r.msg;
       };
       $('pin').onkeydown = e => { if (e.key === 'Enter') $('pinBtn').click(); };
@@ -1094,7 +1120,7 @@ function certSVG() {
   <text x="${W / 2}" y="674" text-anchor="middle" font-family="Georgia,serif" font-size="25" fill="#2D3748">they can <tspan font-weight="700" fill="#E04E6A">create and apply variables</tspan> to <tspan font-weight="700" fill="#3E8E41">store and print data</tspan> in Python.</text>
   <rect x="${W / 2 - 230}" y="700" width="460" height="54" rx="27" fill="${gold ? '#FFF3C4' : '#EEF1F6'}" stroke="${medal[2]}" stroke-width="2"/>
   <text x="${W / 2}" y="736" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="800" fill="${medal[2]}" letter-spacing="2">${gold ? '★ ' : ''}${lvl}${gold ? ' ★' : ''}</text>
-  <text x="${W / 2}" y="790" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" fill="#66707F">Starter ${starterScore()}/2  ·  Levels ${levelsDone()}/3${S.lv[3] ? ' + ★ Challenge' : ''}  ·  Plenary ${plenaryScore()}/2  ·  ${points()} points  ·  Success Criteria 3/3</text>
+  <text x="${W / 2}" y="790" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" fill="#66707F">Starter ${starterScore()}/2  ·  Levels ${levelsDone()}/3${l4Count() ? ` + ${l4Count()} challenges` : ''}  ·  Plenary ${plenaryScore()}/2  ·  ${points()} points  ·  Success Criteria 3/3</text>
   <path d="M170 862 H470" stroke="#2D3748" stroke-width="1.5"/>
   <text x="320" y="850" text-anchor="middle" font-family="Georgia,serif" font-size="24" fill="#2D3748">${d}</text>
   <text x="320" y="888" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#66707F" letter-spacing="2">DATE</text>
@@ -1117,7 +1143,7 @@ function vDone() {
     <span class="tag">Certificate earned! 🏆</span><h1>Congratulations, ${esc(S.name.split(' ')[0])}!</h1>
     <p class="muted">You met all the success criteria – you can create variables to store data and print it!</p>
     <div class="certwrap" id="cert">${certSVG()}</div>
-    <p style="font-weight:800;font-size:20px;margin:10px 0 0">${gold ? '🥇 Gold certificate – you completed all 4 levels!' : '🥈 Silver certificate – you completed Levels 1–3!'}</p>
+    <p style="font-weight:800;font-size:20px;margin:10px 0 0">${gold ? `🥇 Gold certificate – Levels 1–3 + ${l4Count()} challenges!` : '🥈 Silver certificate – you completed Levels 1–3!'}</p>
     <div class="summary"><div><b>${starterScore()}/2</b><span>Starter</span></div><div><b>${levelsDone()}/3${S.lv[3] ? ' ★' : ''}</b><span>Levels</span></div><div><b>${plenaryScore()}/2</b><span>Plenary</span></div><div><b>${points()}</b><span>Points</span></div></div>
     <button class="btn" id="dl">⬇ Download certificate</button> <button class="btn ghost" id="pr">🖨️ Print</button>
     <p class="muted" style="margin-top:14px">Your teacher will now discuss the HOT question with the class.</p></div>`;
@@ -1148,9 +1174,38 @@ $('btnOut').onclick = () => {
 };
 
 
+/* PIN boxes: start read-only so browsers never auto-fill them */
+document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('pinbox')) e.target.removeAttribute('readonly'); });
+document.addEventListener('pointerdown', e => { if (e.target.classList && e.target.classList.contains('pinbox')) e.target.removeAttribute('readonly'); });
+
+/* ---------------- Inspect / developer tools guard (student website) ---------------- */
+function devFlag(why) {
+  if (MODE === 'teacher' || S.stage === 'login' || !S.name) return;
+  if (!S.flag) { S.flag = why + ' ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); persist(); }
+}
+function lockScreen(on) {
+  let el = document.getElementById('devlock');
+  if (on && !el) { el = document.createElement('div'); el.id = 'devlock';
+    el.innerHTML = '<div><div style="font-size:64px">🔒</div><h2>Inspect is not allowed</h2><p>Please close the developer tools (Inspect) to continue your lesson.<br>Your teacher can see that it was opened.</p></div>';
+    document.body.appendChild(el); }
+  if (!on && el) el.remove();
+}
+if (MODE !== 'teacher') {
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('keydown', e => {
+    const k = (e.key || '').toLowerCase(), c = e.ctrlKey || e.metaKey;
+    if (k === 'f12' || (c && e.shiftKey && ['i', 'j', 'c', 'k'].includes(k)) || (c && e.altKey && ['i', 'j', 'c', 'u'].includes(k)) || (c && ['u', 's'].includes(k) && !e.shiftKey)) {
+      e.preventDefault(); e.stopPropagation(); return false;
+    }
+  }, true);
+  setInterval(() => { const t = performance.now(); debugger; const open = performance.now() - t > 120; if (open) { devFlag('Opened Inspect'); } lockScreen(open); }, 1200);
+  if (tampered) { S.flag = 'Changed saved data'; }
+}
+
 /* ------------------------------ start -------------------------------- */
 if (MODE === 'teacher') { document.body.classList.add('teacher'); document.title = 'Teacher Dashboard – Python Variables'; document.querySelector('main').classList.add('dash'); $('btnOut').hidden = true; teacherLogin(); }
 else { render(); if (S.stage !== 'login' && S.name) persist(); }
+})();
 </script>
 </body>
 </html>
