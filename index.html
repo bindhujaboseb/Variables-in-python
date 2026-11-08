@@ -364,7 +364,7 @@
 (() => {
 "use strict";
 /* ======================= SETTINGS (edit these) ======================= */
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwCx1bVjJh7af-SvS26ooR5xOk0IMcwziMOiFErPwHBiTjO86RvPPzjhkzfpkAN9lvS_g/exec';            // paste your Google Apps Script web-app link here
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxdGYUVYJ50bYAkZua01LRb3eJRnzZvAKBprcucD7kyhJ-r1Pafaf4gmmY-pJuYpLyE_g/exec';            // paste your Google Apps Script web-app link here
 // PINs are NOT stored here – change them in the "Settings" tab of the Google Sheet before each class.
 const OFFLINE_PIN_HASH = '';   // set only in the offline version (stores a scrambled PIN, never the PIN itself)
 const MODE = 'student';         // 'student' = student website · 'teacher' = teacher dashboard
@@ -405,10 +405,11 @@ const LEVELS = [
   { t: 'Level 2 – Print It! 🖨️', sc: 'Success criterion 3: use print() to show variable values with labels', qs: [
     { type: 'mcq', q: 'What is the output?<pre>food = "Biryani"\nprint("I like", food)</pre>', o: ['I like food', 'I like Biryani', 'food Biryani'], a: 1,
       why: 'print() shows the value stored in the variable, not its name.' },
-    { type: 'code', q: 'Create these <b>2 variables</b>, then <b>print their sum</b> with a label.' + vt([['a', '<code>10</code>', NUM], ['b', '<code>5</code>', NUM]]), start: '', out: 'Sum: 15',
-      hint: '<b>Line 1 and 2:</b> make the variables <code>a</code> and <code>b</code><br><b>Line 3:</b> inside print(), write the label in quotes, a <b>comma</b>, then <code>a + b</code><br>Example: <code>print("Total:", x + y)</code><br>💡 You can also store the sum in a new variable first, then print that variable.',
-      check: P => numVar(P, 'a', 10) || numVar(P, 'b', 5) || (!usesSum(P, 'a', 'b') ? 'Use <b>both</b> variables to find the sum: <code>a + b</code> (you can also store it first, e.g. <code>total = a + b</code>)' : '') ||
-        (!P.prints.some(p => /\b15\b/.test(p.text)) ? 'The sum of 10 and 5 should be <b>15</b> – use <code>+</code> between a and b.' : '') || (!P.prints.some(p => /["']/.test(p.src) && /\b15\b/.test(p.text)) ? 'Add a label in quotes, e.g. <code>"Sum:"</code>' : '') },
+    { type: 'code', q: 'Create these <b>2 variables</b> – one text and one number – then use <b>print()</b> to show their values. (Adding a label is optional.)' + vt([['team', 'a football team, e.g. <code>"Al Ain"</code>', TXT], ['goals', 'a number of goals, e.g. <code>3</code>', NUM]]), start: '', out: 'Al Ain\n3',
+      hint: '<b>Line 1 and 2:</b> make the variables <code>team</code> (text in quotes) and <code>goals</code> (number, no quotes)<br><b>Line 3 and 4:</b> put each variable name inside <code>print( )</code><br>Example: <code>print(pet)</code> shows the value stored in <code>pet</code>',
+      check: P => strVar(P, 'team', 'the team name') || numVar(P, 'goals') ||
+        (!P.prints.some(p => p.rl.includes('team')) ? 'Now use <b>print()</b> to show the value of <b><code>team</code></b>.' : '') ||
+        (!P.prints.some(p => p.rl.includes('goals')) ? 'Now use <b>print()</b> to show the value of <b><code>goals</code></b> too.' : '') },
   ] },
   { t: 'Level 3 – Bug Hunt 🐞', sc: 'All success criteria: correct names, storing values and printing', qs: [
     { type: 'mcq', q: 'Which is a <b>correct</b> variable name in Python?', o: ['first name', '1st_name', 'first_name'], a: 2,
