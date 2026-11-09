@@ -369,7 +369,7 @@
 (() => {
 "use strict";
 /* ======================= SETTINGS (edit these) ======================= */
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHgEkzKYtbTf0hhyfdtD3tLebitsmx1UIFoL3tV5qMHTGuthUKlpivXr7opyHhJSKl9Q/exec';            // paste your Google Apps Script web-app link here
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbwVM5CzgL8gj9liyjNnA5Xkj9i9tJIY3eH2qhiQaN4IHBaroV5ZOsICbbqxizYFgUZLpg/exec';            // paste your Google Apps Script web-app link here
 // PINs are NOT stored here – change them in the "Settings" tab of the Google Sheet before each class.
 const OFFLINE_PIN_HASH = '';   // set only in the offline version (stores a scrambled PIN, never the PIN itself)
 const MODE = 'student';         // 'student' = student website · 'teacher' = teacher dashboard
@@ -565,19 +565,20 @@ function header() {
   if (on) { $('whoChip').textContent = `${S.name} · ${CLASS_NAME}-${S.div}`; $('ptsChip').textContent = `⭐ ${points()} pts`; }
   const idx = STAGES.indexOf(S.stage);
   const free = S.unlocked && !S.approved && ['video', 'main', 'check'].includes(S.stage);
-  const canGo = k => free && k !== S.stage && (k === 'video' || (k === 'main' && S.video) || (k === 'check' && levelsDone() === 3));
+  const canGo = k => free && k !== S.stage && (k === 'video' || (k === 'main' && S.video) || (k === 'check' && levelsDone() === 3) || (k === 'plenary' && S.video));
   const doneK = k => k === 'video' ? S.video : k === 'main' ? levelsDone() === 3 : STAGES.indexOf(k) < idx;
   $('steps').innerHTML = S.stage === 'login' ? '' : Object.keys(STEP_LABELS).map(k => {
     const i = STAGES.indexOf(k), d = free && ['video', 'main', 'check'].includes(k) ? doneK(k) : i < idx, go_ = canGo(k);
     return `<${go_ ? 'button' : 'span'} class="${d ? 'done' : ''} ${i === idx ? 'on' : ''} ${go_ ? 'nav' : ''}" ${go_ ? `data-go="${k}"` : ''}>${d ? '✓ ' : ''}${STEP_LABELS[k]}</${go_ ? 'button' : 'span'}>`;
   }).join('');
-  document.querySelectorAll('#steps [data-go]').forEach(b => b.onclick = () => { stopSim(); if (b.dataset.go === 'video') exTab = 'watch'; go(b.dataset.go); });
-  if (free) $('steps').insertAdjacentHTML('beforeend', '<div class="navtip">Tip: click Explore or Main Activity to move between them.</div>');
+  document.querySelectorAll('#steps [data-go]').forEach(b => b.onclick = () => { stopSim(); if (b.dataset.go === 'plenary') return askPlenary(); if (b.dataset.go === 'video') exTab = 'watch'; go(b.dataset.go); });
+  if (free) $('steps').insertAdjacentHTML('beforeend', '<div class="navtip">Tip: click Explore, Main Activity or Plenary at the top to move between them.</div>');
   if (MODE !== 'teacher' && AFTER.includes(S.stage)) {
     $('steps').insertAdjacentHTML('beforeend', czView ? `<div class="navtip"><button class="btn sm" id="czBack">${BACK_TO[S.stage]}</button></div>`
       : '<div class="navtip"><button class="btn yellow sm" id="czGo">⭐ Challenge Zone – keep practising</button></div>');
     if ($('czGo')) $('czGo').onclick = () => { czView = true; viewIdx = 3; S.l4i = Math.max(0, qActive(3)); render(); window.scrollTo(0, 0); };
     if ($('czBack')) $('czBack').onclick = leaveMain;
+    if (czView) { const cur = document.querySelector('#steps span.on'); if (cur) { cur.classList.add('nav'); cur.style.cursor = 'pointer'; cur.title = 'Go back'; cur.onclick = leaveMain; } }
   }
 }
 
@@ -597,6 +598,8 @@ let czView = false;
 const AFTER = ['plenary', 'hot', 'done'];
 const BACK_TO = { plenary: '← Back to the Plenary', hot: '← Back to the HOT question', done: '← Back to my Certificate' };
 function leaveMain() { if (czView) { czView = false; viewIdx = null; render(); window.scrollTo(0, 0); } else { viewIdx = null; go('check'); } }
+function toPlenary() { S.approved = S.approved || 'Yes'; viewIdx = null; go('plenary'); window.scrollTo(0, 0); }
+function askPlenary() { toPlenary(); }
 function render() {
   document.body.dataset.stage = S.stage;
   header();
