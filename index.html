@@ -318,6 +318,11 @@
   .lv{border:2px solid var(--lc);color:var(--lc);background:#fff}
   .lv.on{background:var(--lc);color:#fff;border-color:var(--lc)}
   .lv.done{background:var(--greenbg);color:var(--green);border-color:#9BD49D}
+  .qpills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 12px}
+  .qp{font-family:inherit;font-size:14px;font-weight:800;padding:6px 14px;border-radius:999px;background:#fff;border:2px solid var(--line);color:var(--muted);cursor:pointer}
+  .qp.on{background:var(--lc,#5B3FB0);color:#fff;border-color:var(--lc,#5B3FB0)}
+  .qp.done{background:var(--greenbg);color:var(--green);border-color:#9BD49D}
+  .qp:disabled{cursor:not-allowed;opacity:.6}
   .qbox{border:2px solid #E6EAF2}
   .qbox:nth-of-type(3n+1) .qn{background:#F1ECFF;color:#5B3FB0}
   .qbox:nth-of-type(3n+2) .qn{background:#E3F7F6;color:#0E7C7A}
@@ -364,7 +369,7 @@
 (() => {
 "use strict";
 /* ======================= SETTINGS (edit these) ======================= */
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbz2AoPNhzfP8Ji2PCb7GXxOIgB41v5XDHpEgS4Bq2nYLItBcukZxAEWtsEj5mC8wyOu/exec';            // paste your Google Apps Script web-app link here
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbzHgEkzKYtbTf0hhyfdtD3tLebitsmx1UIFoL3tV5qMHTGuthUKlpivXr7opyHhJSKl9Q/exec';            // paste your Google Apps Script web-app link here
 // PINs are NOT stored here – change them in the "Settings" tab of the Google Sheet before each class.
 const OFFLINE_PIN_HASH = '';   // set only in the offline version (stores a scrambled PIN, never the PIN itself)
 const MODE = 'student';         // 'student' = student website · 'teacher' = teacher dashboard
@@ -940,6 +945,12 @@ function levelChips(active) {
 }
 function bindChips() { document.querySelectorAll('.lv[data-lv]').forEach(b => b.onclick = () => { viewIdx = +b.dataset.lv; vMain(); window.scrollTo(0, 0); }); }
 function qActive(i) { const L = LEVELS[i]; for (let j = 0; j < L.qs.length; j++) if (!S.qd[i + '-' + j]) return j; return -1; }
+const qv = {};
+function qPills(i) {
+  const L = LEVELS[i], act = qActive(i);
+  return `<div class="qpills">${L.qs.map((_, j) => { const ok = !!S.qd[i + '-' + j], open = ok || j === act;
+    return `<button class="qp ${j === qv[i] ? 'on' : ok ? 'done' : ''}" ${open ? `data-qv="${j}"` : 'disabled'}>${ok ? '✓' : open ? '' : '🔒'} Q${j + 1}</button>`; }).join('')}<span class="muted" style="font-size:13px">Question ${qv[i] + 1} of ${L.qs.length}</span></div>`;
+}
 function vMain() {
   if (!S.qd) S.qd = {}; if (!S.qc) S.qc = {};
   const cur = curLevel();
@@ -947,6 +958,7 @@ function vMain() {
   if (i === null) { viewIdx = null; return vOffer(); }
   const L = LEVELS[i], act = qActive(i), done = !!S.lv[i];
   if (i === 3 && (S.l4i === undefined || S.l4i === null)) S.l4i = Math.max(0, qActive(3));
+  if (i < 3) { const a = qActive(i); let v = qv[i]; if (v === undefined || (a >= 0 && v > a)) v = a >= 0 ? a : L.qs.length - 1; qv[i] = v; }
   const l4Next = () => { for (let d = 1; d < L.qs.length; d++) { const j = (S.l4i + d) % L.qs.length; if (!S.qd['3-' + j]) return j; } return -1; };
   const card = (q, j) => {
     const k = i + '-' + j, ok = !!S.qd[k], locked = !ok && j !== (i === 3 ? S.l4i : act);
@@ -973,13 +985,16 @@ function vMain() {
     ${levelChips(i)}
     <h2 style="margin-top:12px">${L.t}</h2>${L.gt ? `<p><span class="chip pts">★ Optional · ${l4Count()}/${L.qs.length} solved</span></p>` : ''}
     <p class="muted" style="margin-top:0">🎯 ${L.sc}</p>
-    ${i === 3 ? card(L.qs[S.l4i], S.l4i) : L.qs.map(card).join('')}
+    ${i < 3 && done ? `<div class="fb ok" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">🎉 <b>${L.t.split(' – ')[0]} complete!</b><span style="flex:1"></span><button class="btn sm" id="cont2">${nx === null ? 'Continue →' : `Next: Level ${nx + 1} →`}</button></div>` : ''}
+    ${i === 3 ? card(L.qs[S.l4i], S.l4i) : qPills(i) + card(L.qs[qv[i]], qv[i])}
     <div id="next">${i === 3 ? (() => { const n = l4Count(), nj = l4Next(), solved = !!S.qd['3-' + S.l4i];
         return `<div class="fb ${n >= L4_GOLD ? 'ok' : ''}" style="${n >= L4_GOLD ? '' : 'background:#FFF8E1;color:#7A5C00'}">${n >= L4_GOLD ? `🥇 Gold certificate unlocked! ${n}/${L.qs.length} challenges solved.` : `⭐ ${n}/${L.qs.length} challenges solved – solve ${L4_GOLD} for a 🥇 Gold certificate.`}</div>
         <div class="ctrl">${nj >= 0 ? `<button class="btn ${solved ? '' : 'ghost'}" id="l4next">${solved ? 'Next challenge →' : 'Skip to next challenge →'}</button>` : ''}
-        <button class="btn ${nj < 0 ? '' : 'ghost'}" id="skip">${nj < 0 ? 'All done! Go to Teacher Check →' : 'Skip to Teacher Check →'}</button></div>`; })() : done ? `<div class="fb ok">${i === 3 ? `🥇 Gold certificate unlocked! (${l4Count()}/${L.qs.length} challenges)${qActive(3) >= 0 ? ' Keep going with more challenges, or go to the Teacher Check.' : ''}` : `✓ ${L.t.split(' – ')[0]} complete!`}</div><button class="btn" id="cont">${i === 3 ? 'Go to Teacher Check →' : nx === null ? 'Continue →' : `Next: Level ${nx + 1} →`}</button>` : (L.gt ? '<button class="btn ghost" id="skip">Skip – go to Teacher Check →</button>' : '')}</div>
+        <button class="btn ${nj < 0 ? '' : 'ghost'}" id="skip">${nj < 0 ? 'All done! Go to Teacher Check →' : 'Skip to Teacher Check →'}</button></div>`; })() : done ? `<div class="fb ok">${i === 3 ? `🥇 Gold certificate unlocked! (${l4Count()}/${L.qs.length} challenges)${qActive(3) >= 0 ? ' Keep going with more challenges, or go to the Teacher Check.' : ''}` : `✓ ${L.t.split(' – ')[0]} complete!`}</div><button class="btn" id="cont">${i === 3 ? 'Go to Teacher Check →' : nx === null ? 'Continue →' : `Next: Level ${nx + 1} →`}</button>` : (L.gt ? '<button class="btn ghost" id="skip">Skip – go to Teacher Check →</button>' : (S.qd[i + '-' + qv[i]] && act >= 0 ? `<button class="btn" id="toCur">Next question →</button>` : ''))}</div>
   </div>`;
   bindChips();
+  document.querySelectorAll('[data-qv]').forEach(b => b.onclick = () => { qv[i] = +b.dataset.qv; vMain(); window.scrollTo(0, 0); });
+  if ($('toCur')) $('toCur').onclick = () => { qv[i] = qActive(i); vMain(); window.scrollTo(0, 0); };
   $('openEx').onclick = () => { exTab = 'watch'; go('video'); };
   const finishQ = j => {
     S.qd[i + '-' + j] = 1;
@@ -987,7 +1002,8 @@ function vMain() {
     persist(); header();
     const y = window.scrollY; vMain(); window.scrollTo(0, y);
     if (i === 3) { $('next') && $('next').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    const nxt = document.getElementById('q' + (j + 1)); if (nxt) nxt.scrollIntoView({ behavior: 'smooth', block: 'center' }); else if ($('next')) $('next').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const a = qActive(i); if (a >= 0) qv[i] = a;
+    vMain(); window.scrollTo(0, 0);
   };
   document.querySelectorAll('.opt[data-q]').forEach(b => b.onclick = () => {
     const j = +b.dataset.q, m = +b.dataset.m, q = L.qs[j]; S.tries[i]++;
@@ -1023,6 +1039,7 @@ function vMain() {
   document.querySelectorAll('.qdone textarea.codeed').forEach(ta => { const j = +ta.id.slice(4); setTimeout(() => { const rb = document.querySelector(`[data-run="${j}"]`); if (rb) { rb.dataset.auto = '1'; rb.click(); } }, 0); });
   if (czView) { $('openEx').style.display = 'none'; if ($('skip')) $('skip').textContent = BACK_TO[S.stage]; if ($('cont') && i === 3) $('cont').textContent = BACK_TO[S.stage]; }
   if ($('cont')) $('cont').onclick = () => { if (i === 3) return leaveMain(); viewIdx = null; vMain(); window.scrollTo(0, 0); };
+  if ($('cont2')) $('cont2').onclick = () => $('cont').click();
   if ($('skip')) $('skip').onclick = leaveMain;
   if ($('l4next')) $('l4next').onclick = () => { S.l4i = l4Next(); persist(); vMain(); window.scrollTo(0, 0); };
 }
