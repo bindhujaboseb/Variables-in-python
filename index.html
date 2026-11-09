@@ -364,7 +364,7 @@
 (() => {
 "use strict";
 /* ======================= SETTINGS (edit these) ======================= */
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxdGYUVYJ50bYAkZua01LRb3eJRnzZvAKBprcucD7kyhJ-r1Pafaf4gmmY-pJuYpLyE_g/exec';            // paste your Google Apps Script web-app link here
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbz2AoPNhzfP8Ji2PCb7GXxOIgB41v5XDHpEgS4Bq2nYLItBcukZxAEWtsEj5mC8wyOu/exec';            // paste your Google Apps Script web-app link here
 // PINs are NOT stored here – change them in the "Settings" tab of the Google Sheet before each class.
 const OFFLINE_PIN_HASH = '';   // set only in the offline version (stores a scrambled PIN, never the PIN itself)
 const MODE = 'student';         // 'student' = student website · 'teacher' = teacher dashboard
@@ -568,6 +568,12 @@ function header() {
   }).join('');
   document.querySelectorAll('#steps [data-go]').forEach(b => b.onclick = () => { stopSim(); if (b.dataset.go === 'video') exTab = 'watch'; go(b.dataset.go); });
   if (free) $('steps').insertAdjacentHTML('beforeend', '<div class="navtip">Tip: click Explore or Main Activity to move between them.</div>');
+  if (MODE !== 'teacher' && AFTER.includes(S.stage)) {
+    $('steps').insertAdjacentHTML('beforeend', czView ? `<div class="navtip"><button class="btn sm" id="czBack">${BACK_TO[S.stage]}</button></div>`
+      : '<div class="navtip"><button class="btn yellow sm" id="czGo">⭐ Challenge Zone – keep practising</button></div>');
+    if ($('czGo')) $('czGo').onclick = () => { czView = true; viewIdx = 3; S.l4i = Math.max(0, qActive(3)); render(); window.scrollTo(0, 0); };
+    if ($('czBack')) $('czBack').onclick = leaveMain;
+  }
 }
 
 const SC_LIST = ['I can explain a variable as a labelled box that stores a value.',
@@ -582,10 +588,16 @@ function frame() {
   const m = scMet(S), n = m.filter(Boolean).length;
   $('scBot').innerHTML = `<div class="scbar"><b>✅ Success Criteria</b> <span class="muted" style="font-size:13px">· ${n}/3 met</span><ul class="sclist">${SC_LIST.map((x, k) => `<li class="${m[k] ? 'met' : ''}"><span>${m[k] ? '✓' : ''}</span>${esc(x)}</li>`).join('')}</ul></div>`;
 }
+let czView = false;
+const AFTER = ['plenary', 'hot', 'done'];
+const BACK_TO = { plenary: '← Back to the Plenary', hot: '← Back to the HOT question', done: '← Back to my Certificate' };
+function leaveMain() { if (czView) { czView = false; viewIdx = null; render(); window.scrollTo(0, 0); } else { viewIdx = null; go('check'); } }
 function render() {
   document.body.dataset.stage = S.stage;
   header();
   if (S.stage !== 'video') stopSim();
+  if (czView && AFTER.includes(S.stage)) { if (viewIdx === null) viewIdx = 3; return vMain(); }
+  czView = false;
   ({ login: vLogin, starter: () => vQuiz('starter'), wait: vWait, video: vVideo, main: vMain, check: vCheck, plenary: () => vQuiz('plenary'), hot: vHot, done: vDone })[S.stage]();
 }
 
@@ -645,7 +657,7 @@ const SCENES = [
   { code: 'name = "Aisha"', cap: '<b>=</b> means <b>STORE</b>. Python makes a box labelled <b>name</b> and puts <b>"Aisha"</b> inside. Text always goes in quotes.' },
   { code: 'age = 13', cap: 'Numbers don’t need quotes. The box <b>age</b> stores the number <b>13</b> – it’s blue because it holds a number.' },
   { code: 'print("Name:", name, "Age:", age)', cap: '<b>print()</b> shows the values inside the boxes. The labels in quotes make the output easy to read!' },
-  { code: '', end: true, cap: '🎉 That’s it! A variable has a <b>name</b> and a <b>value</b>. Now click <b>🧪 Try it yourself</b> and create your own variables!' },
+  { code: '', end: true, cap: '🎉 That’s it! A variable has a <b>name</b> and a <b>value</b>. Click <b>Go to Main Activity</b> to start the levels, or <b>🧪 Try it yourself</b> for extra practice.' },
 ];
 const TRY_ANSWER = 'city = "Sharjah"\nage = 13\nprint("City:", city)\nprint("Age:", age)';
 const KW = ['print', 'if', 'else', 'elif', 'for', 'while', 'and', 'or', 'not', 'True', 'False', 'None', 'def', 'class', 'import', 'in', 'is', 'return', 'input'];
@@ -740,7 +752,7 @@ function vVideo() {
       ${S.video ? '<button class="btn sm" id="toMain">Go to Main Activity →</button>' : ''}</div>
     <h2 style="margin-top:6px">Inside the computer’s memory 🧠</h2>
     <div class="extabs" id="extabs">
-      <button data-x="watch">▶ Watch the story</button><button data-x="try">🧪 Try it yourself</button>
+      <button data-x="watch">▶ Watch the story</button><button data-x="try">🧪 Try it yourself <small style="font-weight:600;opacity:.75">(optional)</small></button>
     </div>
     <div class="guide"><div class="bot">🤖</div><div class="bubble" id="cap"></div></div>
     <div class="sim">
@@ -764,7 +776,7 @@ function vVideo() {
 function paintExNext() {
   $('exNext').innerHTML = S.video
     ? '<button class="btn" id="vNext">Go to Main Activity →</button>'
-    : '<button class="btn" disabled>Go to Main Activity →</button><div class="muted" style="font-size:14px;margin-top:6px">Watch the story, then finish <b>🧪 Try it yourself</b> to unlock the Main Activity.</div>';
+    : '<button class="btn" disabled>Go to Main Activity →</button><div class="muted" style="font-size:14px;margin-top:6px">Watch the story to the last scene to unlock the Main Activity. <b>🧪 Try it yourself</b> is optional extra practice.</div>';
   if ($('vNext')) $('vNext').onclick = () => { stopSim(); go('main'); };
 }
 function exploreComplete() {
@@ -814,7 +826,8 @@ async function showScene(i, animate, noRun) {
   say(SCENES[i].cap);
   if (SCENES[i].code && !noRun) await runLine(SCENES[i].code, animate);
   simBusy = false;
-  if (SCENES[i].end && $('ctrl') && !$('goTry')) { $('ctrl').insertAdjacentHTML('beforeend', '<div style="margin-top:12px"><button class="btn yellow" id="goTry">🧪 Now try it yourself →</button></div>'); $('goTry').onclick = () => { exTab = 'try'; showExTab(); }; }
+  if (SCENES[i].end) exploreComplete();
+  if (SCENES[i].end && $('ctrl') && !$('goTry')) { $('ctrl').insertAdjacentHTML('beforeend', '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="goMainS">Go to Main Activity →</button><button class="btn yellow" id="goTry">🧪 Try it yourself (optional)</button></div>'); $('goTry').onclick = () => { exTab = 'try'; showExTab(); }; $('goMainS').onclick = () => { stopSim(); go('main'); }; }
 }
 
 /* ---- Try it yourself: create 2 variables + print ---- */
@@ -865,7 +878,7 @@ function setupTry() {
       $('toStep2').onclick = () => { S.tryStep = 2; persist(); setupTry(); $('ctrl').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
       return;
     }
-    $('tryFb').innerHTML = '<div class="fb ok">✓ Brilliant! You created 2 variables and printed them. The Main Activity is unlocked!</div>';
+    $('tryFb').innerHTML = '<div class="fb ok">✓ Brilliant! You created 2 variables and printed them.</div>';
     say('🏆 Amazing! Your variables are on the memory shelf and printed in the output. You are ready for the <b>Main Activity</b>!');
     exploreComplete();
   };
@@ -1008,8 +1021,9 @@ function vMain() {
     $('fb' + j).innerHTML = '<div class="fb ok">✓ Correct! +10 points</div>'; setTimeout(() => finishQ(j), 1100);
   });
   document.querySelectorAll('.qdone textarea.codeed').forEach(ta => { const j = +ta.id.slice(4); setTimeout(() => { const rb = document.querySelector(`[data-run="${j}"]`); if (rb) { rb.dataset.auto = '1'; rb.click(); } }, 0); });
-  if ($('cont')) $('cont').onclick = () => { if (i === 3) return go('check'); viewIdx = null; vMain(); window.scrollTo(0, 0); };
-  if ($('skip')) $('skip').onclick = () => { viewIdx = null; go('check'); };
+  if (czView) { $('openEx').style.display = 'none'; if ($('skip')) $('skip').textContent = BACK_TO[S.stage]; if ($('cont') && i === 3) $('cont').textContent = BACK_TO[S.stage]; }
+  if ($('cont')) $('cont').onclick = () => { if (i === 3) return leaveMain(); viewIdx = null; vMain(); window.scrollTo(0, 0); };
+  if ($('skip')) $('skip').onclick = leaveMain;
   if ($('l4next')) $('l4next').onclick = () => { S.l4i = l4Next(); persist(); vMain(); window.scrollTo(0, 0); };
 }
 function vOffer() {
@@ -1019,7 +1033,8 @@ function vOffer() {
     <button class="btn yellow" id="ch">Enter the Challenge Zone ★</button> <button class="btn" id="tc">Go to Teacher Check →</button></div>`;
   bindChips();
   $('ch').onclick = () => { S.lvIdx = 3; viewIdx = null; S.l4i = Math.max(0, qActive(3)); persist(); vMain(); };
-  $('tc').onclick = () => go('check');
+  if (czView) $('tc').textContent = BACK_TO[S.stage];
+  $('tc').onclick = leaveMain;
 }
 
 let pollTimer = null;
@@ -1060,17 +1075,16 @@ function vWait() {
   pb.bind(); startPoll('unlock', unlock);
 }
 function vCheck() {
+  clearInterval(pollTimer); clearTimeout(pollFirst);
   const n = levelsDone() + (S.lv[3] ? 1 : 0);
-  const ok = () => { clearInterval(pollTimer); S.approved = S.approved || 'Teacher'; go('plenary'); };
-  const pb = pinBlock('check', 'Teacher Check PIN', ok);
   $('app').innerHTML = `<div class="card center">
-    <span class="tag">Teacher Check</span><h2>Raise your hand ✋ and show your teacher your levels</h2>
-    <p class="muted">Your teacher will look at your work and approve you from the dashboard or with a PIN.</p>
+    <span class="tag">Teacher Check</span><h2>Well done! Show your teacher your levels ✋</h2>
+    <p class="muted">Your teacher will look at your work and tick the class name list.</p>
     <p style="font-size:20px"><b>${n} level${n === 1 ? '' : 's'} finished</b>${S.lv[3] ? ' (including the ★ challenge)' : ''}</p>
-    <div class="spinner"></div><p class="muted"><b>Waiting for approval…</b></p>${pb.html}
-    <div><button class="linkbtn" id="back">← Back to my levels</button></div></div>`;
-  pb.bind(); startPoll('approved', ok);
-  $('back').onclick = () => { clearInterval(pollTimer); viewIdx = 0; go('main'); };
+    <button class="btn" id="toPlen">Continue to the Plenary →</button>
+    <div style="margin-top:10px"><button class="linkbtn" id="back">← Back to my levels</button></div></div>`;
+  $('toPlen').onclick = () => { S.approved = S.approved || 'Yes'; go('plenary'); };
+  $('back').onclick = () => { viewIdx = 0; go('main'); };
 }
 
 function vHot() {
